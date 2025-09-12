@@ -1,8 +1,8 @@
-# RepoMaster
+# RepoGod
 
-RepoMaster is your CLI + FastAPI powered assistant for working with GitHub repos.
+RepoGod is your CLI + FastAPI powered assistant for working with GitHub repos.
 
-![RepoMaster Demo](media/sample.png)
+![RepoGod Demo](media/sample.png)
 
 ## Features
 - GitHub OAuth login via CLI
