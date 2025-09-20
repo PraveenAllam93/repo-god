@@ -1,0 +1,92 @@
+--- # Mongo deployment for Repo God
+- name: Deploy MongoDB on Docker for Repo God
+  hosts: localhost
+  connection: local
+  become: false
+  vars_files:
+    - secrets.yml
+  tasks:
+    
+    - name: Stop and Remove existing MongoDB container if it exists
+      community.docker.docker_container:
+        name: rg-mongo
+        state: absent
+        force_kill: true
+      ignore_errors: true
+
+    - name: Stop and Remove existing Mongo Express container if it exists
+      community.docker.docker_container:
+        name: rg-mongo-express
+        state: absent
+        force_kill: true
+      ignore_errors: true
+
+    - name: Deploy rg-mongo container
+      community.docker.docker_container:
+        name: rg-mongo
+        image: mongo:latest
+        state: started
+        restart_policy: unless-stopped
+        recreate: true
+        pull: true
+        env:
+          MONGO_INITDB_ROOT_USERNAME: "{{ MONGO_USER }}"
+          MONGO_INITDB_ROOT_PASSWORD: "{{ MONGO_PASSWORD }}"
+        ports:
+          - "27017:27017"
+        volumes:
+          - mongo-data:/data/db
+        networks:
+          - name: rg-net
+        healthcheck:
+          test: ["CMD", "mongosh", "--username", "{{ MONGO_USER }}", "--password", "{{ MONGO_PASSWORD }}", "--eval", "db.adminCommand('ping')"]
+          interval: 30s
+          timeout: 10s
+          retries: 5
+          start_period: 30s
+    
+    - name: Wait for MongoDB to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 27017
+        delay: 5
+        timeout: 60
+    
+    - name: Deploy rg-mongo-express container
+      community.docker.docker_container:
+        name: rg-mongo-express
+        image: mongo-express:latest
+        state: started
+        restart_policy: on-failure
+        recreate: true
+        pull: true
+        env:
+          ME_CONFIG_MONGODB_SERVER: "rg-mongo"
+          ME_CONFIG_MONGODB_PORT: "27017"
+          ME_CONFIG_MONGODB_ADMINUSERNAME: "{{ MONGO_USER }}"
+          ME_CONFIG_MONGODB_ADMINPASSWORD: "{{ MONGO_PASSWORD }}"
+          ME_CONFIG_BASICAUTH_USERNAME: "admin"
+          ME_CONFIG_BASICAUTH_PASSWORD: "{{ MONGO_EXPRESS_PASSWORD }}"
+        ports:
+          - "9998:8081"
+        networks:
+          - name: rg-net
+    
+    - name: Wait for Mongo Express to be healthy
+      ansible.builtin.uri:
+        url: http://localhost:9998
+        method: GET
+        user: admin
+        password: "{{ MONGO_EXPRESS_PASSWORD }}"
+        force_basic_auth: yes
+        status_code: 200
+      register: mongo_express_health
+      retries: 10
+      delay: 6
+      until: mongo_express_health.status == 200
+    
+    - name: Display MongoDB and Mongo Express access information
+      ansible.builtin.debug:
+        msg: |
+          MongoDB is running on port 27017 with username '{{ MONGO_USER }}' and password '{{ MONGO_PASSWORD }}'.
+          Mongo Express is accessible at http://localhost:9998 with username 'admin' and password '{{ MONGO_EXPRESS_PASSWORD }}'.
