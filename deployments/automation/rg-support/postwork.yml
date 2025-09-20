@@ -1,0 +1,14 @@
+--- # RG Support Apps Deployment
+- name: PostWork for RG Support Apps Deployment
+  hosts: localhost
+  connection: local
+  become: false
+  tasks:
+
+  # PostWork
+    - name: Ensure logrotate is Scheduled
+      ansible.builtin.cron:
+        name: "logrotate"
+        job: "/usr/sbin/logrotate /etc/logrotate.conf"
+        special_time: daily
+        user: praveenallam
