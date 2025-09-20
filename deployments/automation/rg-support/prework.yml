@@ -1,0 +1,43 @@
+--- # RG Support Apps Deployment
+- name: PreWork for RG Support Apps Deployment
+  hosts: localhost
+  connection: local
+  become: false
+  tasks:
+    
+    - name: Check if Docker Desktop is installed (macOS)
+      ansible.builtin.stat:
+        path: /Applications/Docker.app
+      register: docker_app
+      when: ansible_system == "Darwin"
+      
+    - name: Install Docker Desktop if not present (macOS)
+      ansible.builtin.fail:
+        msg: "Docker Desktop is not installed. Please install it from https://www.docker.com/products/docker-desktop and re-run the playbook."
+      when: ansible_system == "Darwin" and not docker_app.stat.exists
+    
+    - name: Ensure Docker Desktop is started (macOS)
+      ansible.builtin.command: open -a Docker
+      changed_when: false
+      when: ansible_system == "Darwin"
+    
+    - name: Wait for Docker to be ready (macOS)
+      ansible.builtin.command: docker info
+      register: docker_check
+      retries: 10
+      delay: 6
+      until: docker_check.rc == 0
+      when: ansible_system == "Darwin"
+      changed_when: false
+    
+    - name: Create rg-net network
+      community.docker.docker_network:
+        name: rg-net
+        state: present
+
+    # - name: Create RG directory (/Users/praveenallam/Desktop/projects/repo-god/data)
+    #   ansible.builtin.file:
+    #     path: /opt/rg
+    #     state: directory
+    #     mode: '0755'
+    #   become: true
