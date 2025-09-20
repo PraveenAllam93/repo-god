@@ -1,0 +1,96 @@
+--- # Copart Walter Files Support Apps Deployment
+- name: Deploy Redis on Docker for Walter Files Support
+  hosts: localhost
+  connection: local
+  become: false
+  vars_files:
+    - secrets.yml
+  tasks:
+
+  # Build Docker image to use custom config
+    - name: Deploy Build Files
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/tmp"
+      loop:
+        - Dockerfile.redis
+        - redis.conf
+
+    - name: Stop and Remove Existing Docker Container (Redis)
+      community.docker.docker_container:
+        name: "rg-redis"
+        state: absent
+        force_kill: true
+      ignore_errors: yes
+    
+    - name: Stop and Remove Existing Docker container (Redis Commander)
+      community.docker.docker_container:
+        name: "rg-redis-commander"
+        state: absent
+        force_kill: true
+      ignore_errors: yes
+
+    - name: Remove Existing Docker Image
+      command: docker rmi rg-redis-custom:latest
+      ignore_errors: yes
+
+    - name: Build Docker Image
+      community.docker.docker_image:
+        name: "rg-redis-custom"
+        tag: "latest"
+        source: build
+        build:
+          path: "/tmp" 
+          dockerfile: Dockerfile.redis
+          nocache: yes
+
+    - name: Deploy rg-redis Container
+      docker_container:
+        name: rg-redis
+        image: rg-redis-custom
+        state: started
+        restart_policy: always
+        recreate: true
+        ports:
+          - "6379:6379"
+        volumes:
+          - "redis-data:/data"
+        networks:
+          - name: rg-net
+    
+    - name: Check Redis health using redis-cli
+      command: docker exec rg-redis redis-cli -u redis://{{ REDIS_ADMIN_USER }}:{{ REDIS_ADMIN_PASSWORD }}@localhost:6379 ping
+      register: redis_health
+      retries: 5
+      delay: 6
+      until: redis_health.stdout == "PONG"
+      
+    # - name: Deploy rg-redis-commander Container
+    #   docker_container:
+    #     name: rg-redis-commander
+    #     image: rediscommander/redis-commander:latest
+    #     platform: linux/amd64
+    #     state: started
+    #     restart_policy: on-failure
+    #     recreate: true
+    #     pull: true
+    #     ports:
+    #       - "9997:8081"
+    #     links:
+    #       - rg-redis:redis
+    #     env:
+    #       REDIS_HOSTS: "local:localhost:6379:0:{{ REDIS_PASSWORD }}:{{ REDIS_USER }}"
+    #     security_opts:
+    #       - no-new-privileges:true
+    #     networks:
+    #       - name: rg-net
+
+    - name: Cleanup temp files
+      ansible.builtin.file:
+        path: "/tmp/Dockerfile.redis"
+        state: absent
+
+    - name: Cleanup temp files
+      ansible.builtin.file:
+        path: "/tmp/redis.conf"
+        state: absent
