@@ -1,0 +1,27 @@
+--- # Repo God Support Apps Deployment
+
+# PreWork
+- import_playbook: prework.yml
+  # This ensures Docker is installed and /opt/rg directory is created
+
+# Deploy Mongo and Mongo Express
+- import_playbook: mongo/deploy-mongo.yml
+  # This deploys MongoDB in a Docker container
+  # Ensure MongoDB is running on port 27017
+  # Ensure Mongo Express is running on port 9998
+
+# Deploy Qdrant
+- import_playbook: qdrant/deploy-qdrant.yml
+  # This deploys Qdrant in a Docker container
+  # Ensure Qdrant is running on ports 6333 and 6334
+
+# Deploy Redis and Redis Commander
+- import_playbook: redis/deploy-redis.yml
+  # This deploys Redis in a Docker container with custom configuration
+  # Ensure Redis is running on port 6379
+  # Ensure Redis Commander is running on port 9997
+
+# PostWork
+- import_playbook: postwork.yml
+  # This sets up log rotation for Docker logs
+  # This ensures logrotate is scheduled to run daily

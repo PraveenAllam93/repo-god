@@ -1,0 +1,15 @@
+// Pre/PostWork
+ansible-playbook prework.yml -i ../hosts.ini -K
+ansible-playbook postwork.yml -i ../hosts.ini -K
+
+// Deploy Qdrant
+ansible-playbook qdrant/deploy-qdrant.yml -i ../hosts.ini -K
+
+// Deploy Mongo and Mongo express
+ansible-playbook mongo/deploy-mongo.yml -i ../hosts.ini -K --ask-vault-pass
+
+// Deploy Redis and Redis Commander
+ansible-playbook redis/deploy-redis.yml -i ../hosts.ini -K --ask-vault-password
+
+// Deploy All Repo God Support Apps (Qdrant, )
+ansible-playbook deploy-support.yml -i ../hosts.ini -K --ask-vault-pass
