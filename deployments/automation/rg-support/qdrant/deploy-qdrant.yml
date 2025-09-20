@@ -1,0 +1,43 @@
+--- # Qdrant deployment for Repo God
+- name: Deploy Qdrant on Docker for Repo God
+  hosts: localhost
+  connection: local
+  become: false
+  tasks:
+    
+    - name: Stop and Remove existing Qdrant container if it exists
+      ansible.builtin.command: docker rm -f rg-qdrant
+      ignore_errors: true
+
+    - name: Deploy Qdrant container
+      community.docker.docker_container:
+        name: rg-qdrant
+        image: qdrant/qdrant
+        platform: linux/amd64
+        state: started
+        restart_policy: unless-stopped
+        recreate: true
+        pull: true
+        ports:
+          - "6333:6333"
+          - "6334:6334"
+        volumes:
+          - qdrant-storage:/qdrant/storage:z
+        networks:
+          - name: rg-net
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
+          interval: 300s
+          timeout: 10s
+          retries: 3
+          start_period: 30s
+      
+    - name: Wait for Qdrant to be healthy
+      ansible.builtin.uri:
+        url: http://localhost:6333/collections
+        method: GET
+        status_code: 200
+      register: qdrant_health
+      retries: 10
+      delay: 6
+      until: qdrant_health.status == 200
